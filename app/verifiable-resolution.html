@@ -1,0 +1,72 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Verifiable Resolution Receipt — predict.day</title>
+<style>
+  :root{--bg:#070b0e;--card:#0d141a;--green:#19f08a;--dim:#7d8b95;--line:#1b2730;--txt:#e7f0f3}
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;padding:28px}
+  .wrap{max-width:760px;margin:0 auto}
+  h1{font:600 20px/1.2 'Space Grotesk',system-ui,sans-serif;letter-spacing:.3px;margin:0 0 4px}
+  .sub{color:var(--dim);margin:0 0 22px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:16px}
+  .row{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px dashed var(--line)}
+  .row:last-child{border-bottom:0}
+  .k{color:var(--dim)} .v{text-align:right;word-break:break-all}
+  .score{font:600 34px/1 'Space Grotesk',sans-serif;text-align:center;padding:8px 0}
+  .badge{display:inline-block;background:rgba(25,240,138,.12);color:var(--green);border:1px solid var(--green);border-radius:999px;padding:4px 12px;font-weight:600}
+  a{color:var(--green)}
+  button{background:var(--green);color:#02110a;border:0;border-radius:9px;padding:12px 18px;font:600 15px/1 inherit;cursor:pointer;width:100%}
+  button:disabled{opacity:.6;cursor:wait}
+  pre{background:#060a0d;border:1px solid var(--line);border-radius:9px;padding:12px;overflow:auto;max-height:280px;color:var(--dim);white-space:pre-wrap;word-break:break-all}
+  .ok{color:var(--green);font-weight:600} .bad{color:#ff6b6b;font-weight:600}
+  .mono{font-size:12px;color:var(--dim)}
+</style></head><body><div class="wrap">
+  <h1>Verifiable Resolution Receipt</h1>
+  <p class="sub">This market was settled by a TxLINE cryptographic proof, verified on-chain. Re-verify it yourself below — no backend, no trust.</p>
+  <div class="card">
+    <div class="score" id="score"></div>
+    <div style="text-align:center;margin-bottom:6px"><span class="badge" id="outcome"></span></div>
+  </div>
+  <div class="card">
+    <div class="row"><span class="k">Fixture ID</span><span class="v" id="fix"></span></div>
+    <div class="row"><span class="k">TxLINE program (txoracle)</span><span class="v"><a id="orac" target="_blank"></a></span></div>
+    <div class="row"><span class="k">Daily scores root PDA</span><span class="v"><a id="pda" target="_blank"></a></span></div>
+    <div class="row"><span class="k">Events sub-tree root</span><span class="v mono" id="estr"></span></div>
+    <div class="row"><span class="k">Main-tree root</span><span class="v mono" id="mtr"></span></div>
+  </div>
+  <div class="card">
+    <button id="verify">Verify on-chain (independent)</button>
+    <pre id="out" style="margin-top:14px;display:none"></pre>
+  </div>
+  <p class="mono">Verification simulates txoracle.validate_stat against the public devnet RPC. A return of 0x01 means the 3-stage Merkle proof checks out against the on-chain daily roots and the outcome predicate holds.</p>
+</div>
+<script>
+const R = {"fixtureId":17952170,"seq":941,"homeGoals":1,"awayGoals":0,"winner":0,"outcomeLabel":"HOME WIN","dailyPda":"HYo6qqMUXRaMit2YF6q6YEh5K1mWYBFC3pDZrV2HZN5f","txoracle":"6pW64gN1s2uqjHkn1unFeEjAwJkPGHoppGvS715wyP2J","eventsSubTreeRoot":"af84cef164ce928e498699a10f0f18ee8d2344094aa237e0b3d8c826fa1f9378","mainTreeRoot":"1cb6163f412debb917750d72de6b4992536d5b77c071843232e85a40cd54b083","rpc":"https://api.devnet.solana.com","txB64":"AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAMEgTjEo3fruJZpA9bOMJNrRgrSbdJIp6xo28kYNDxpdR1WdZ8skF94YMhjdxS/JJEwncBxgVE/eiS/Ptr4f3dQAwMGRm/lIRcy/+ytunLDm+e8jOW7xfcSayxDmzpAAAAA9eAfRbDS7v0Tgtc3xgfsX6Q00oArTZc9DYWTF8Bj5iIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAICAAUCwFwVAAEBA44Ga8XoWr+IabnoQsaTngEAAKrtEQEAAAAAFAAAAOhCxpOeAQAAz0bHk54BAACvhM7xZM6SjkmGmaEPDxjujSNECUqiN+Cz2Mgm+h+TeAUAAAC7ippHq8oLEWFH8F1DpocR1wkhwSG2+X1NNyx7zr04pAG9r5C0YEgab5nTKzXvZQc3tyHJmD+ODt0aN3wSFs1HHgHkImmhbG0QTCrE7vFZleMsmp0J0e1oMPjWcqtFgi+8ggEusubmIVypLMZZnVC9MqUF4/LoeKhml0cm8MfPp1wV0gEZ6evAyJJaxvRxnLtSRyJ1YWVhBl4rbXHtW/Uki55YdwABAAAAHLYWP0Et67kXdQ1y3mtJklNtW3fAcYQyMuhaQM1UsIMAAAAAAADqAwAAAQAAAAQAAAC2MhGmhi0yGs6JTSdusoaSmJzpDUR/DwE1AQ9QpGhKqQYAAAAmuMocH7VdaRgMstWAMSffS99iojkJW7ZD0db5p/M5nACEinqV2/E+Z91BQNsmocVKhLQ5HdqJiIMuWfoJ4nLVWgGLO4quhTXLj12sQa73GxtBjEgJ3WAVOqX0N2qiI/nV5gHrpfdm5TSJFnI24+IySPhaarKcOHd2eK9wt1X+wcSiQADWcZ3LdB1cyD8+OjJTn59j0R2c/U1aBh67EkxMV6GaAgGPSIPbFMvShJbbTgPaZwnBktElWj2cuhMcuKk631yPoQEB6wMAAAAAAAAEAAAAtjIRpoYtMhrOiU0nbrKGkpic6Q1Efw8BNQEPUKRoSqkGAAAA9ChA1Y8la6UGvJ2GrrJheveXyRsCrOmN210HuFV5y3sB0Ip100oe8Heq/vUKIxfAsWZuKW6UbK5orlBOBnZgsh0AizuKroU1y49drEGu9xsbQYxICd1gFTql9DdqoiP51eYB66X3ZuU0iRZyNuPiMkj4WmqynDh3dnivcLdV/sHEokAA1nGdy3QdXMg/PjoyU5+fY9EdnP1NWgYeuxJMTFehmgIBj0iD2xTL0oSW204D2mcJwZLRJVo9nLoTHLipOt9cj6EBAQE="};
+const ex = (a)=>'https://explorer.solana.com/address/'+a+'?cluster=devnet';
+score.textContent = R.homeGoals + ' - ' + R.awayGoals;
+outcome.textContent = R.outcomeLabel;
+fix.textContent = R.fixtureId;
+orac.textContent = R.txoracle; orac.href = ex(R.txoracle);
+pda.textContent = R.dailyPda; pda.href = ex(R.dailyPda);
+estr.textContent = R.eventsSubTreeRoot;
+mtr.textContent = R.mainTreeRoot;
+verify.onclick = async () => {
+  verify.disabled = true; verify.textContent = 'Verifying on-chain...';
+  out.style.display='block'; out.textContent='POST simulateTransaction -> '+R.rpc+'\n';
+  try {
+    const res = await fetch(R.rpc, {method:'POST',headers:{'content-type':'application/json'},
+      body: JSON.stringify({jsonrpc:'2.0',id:1,method:'simulateTransaction',
+        params:[R.txB64,{sigVerify:false,replaceRecentBlockhash:true,encoding:'base64'}]})});
+    const j = await res.json();
+    const val = j.result?.value || {};
+    const rd = val.returnData?.data?.[0];
+    const ok = rd ? (atob(rd).charCodeAt(0)===1) : false;
+    out.textContent += '\nreturnData: '+(rd||'(none)')+'  -> '+(ok?'TRUE':'FALSE')+'\n\n'+(val.logs||[]).join('\n');
+    const verdict = document.createElement('div');
+    verdict.className = ok ? 'ok' : 'bad';
+    verdict.style.marginTop='10px';
+    verdict.textContent = ok ? '✔ VERIFIED on-chain: the score and outcome are cryptographically proven.' : '✘ verification did not return true';
+    out.parentNode.appendChild(verdict);
+  } catch(e){ out.textContent += '\nerror: '+e.message; }
+  verify.disabled=false; verify.textContent='Verify on-chain (independent)';
+};
+</script></body></html>

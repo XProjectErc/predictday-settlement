@@ -1,0 +1,20 @@
+[package]
+name = "predictday_settlement"
+version = "0.1.0"
+edition = "2021"
+description = "Trustless prediction-market settlement via TxLINE Merkle proofs (CPI into txoracle.validate_stat)"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "predictday_settlement"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+idl-build = ["anchor-lang/idl-build"]
+
+[dependencies]
+anchor-lang = { version = "0.30.1", features = ["init-if-needed"] }

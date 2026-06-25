@@ -1,0 +1,18 @@
+[package]
+name = "settle_spike"
+version = "0.1.0"
+edition = "2021"
+description = "Minimal native Solana program: CPI into txoracle.validate_stat, read return data, gate release on the bool"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+solana-program = "2"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+overflow-checks = true

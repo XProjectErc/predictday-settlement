@@ -1,0 +1,269 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://txline-docs.txodds.com/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# On-Chain Validation
+
+> Validate scores data using cryptographic Merkle proofs
+
+<Info>
+  **Prerequisites**: Complete the [Quickstart](/quickstart) guide to set up authentication and subscriptions
+</Info>
+
+<Info>
+  **API Endpoints**: Use `https://txline.txodds.com/api/` for mainnet or `https://txline-dev.txodds.com/api/` for devnet
+</Info>
+
+## Overview
+
+This guide demonstrates how to validate scores data against on-chain Merkle roots using cryptographic proofs. You'll learn how to fetch validation data and perform both single-stat and two-stat validations.
+
+## Setup
+
+```typescript theme={null}
+import * as anchor from "@coral-xyz/anchor";
+import { PublicKey, ComputeBudgetProgram } from "@solana/web3.js";
+import { BN } from "@coral-xyz/anchor";
+import axios from "axios";
+
+const provider = anchor.AnchorProvider.env();
+anchor.setProvider(provider);
+const program = anchor.workspace.Txoracle as anchor.Program<Txoracle>;
+
+// Create HTTP client with authentication
+const httpClient = axios.create({
+  timeout: 30000,
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${jwt}`,
+    "X-Api-Token": apiToken
+  },
+  baseURL: "https://txline.txodds.com",
+});
+```
+
+## Fetching Scores Data
+
+Retrieve a snapshot of scores for a specific fixture:
+
+```typescript theme={null}
+const fixtureId = 17952170;
+const response = await httpClient.get(`/api/scores/snapshot/${fixtureId}?asOf=${Date.now()}`);
+console.log(`Snapshot for fixture ${fixtureId}:`, response.data);
+```
+
+Search for recent score updates:
+
+```typescript theme={null}
+const now = new Date();
+const targetTime = new Date(now.getTime() - (5 * 300000)); // 25 minutes ago
+const epochDay = Math.floor(targetTime.getTime() / 86400000);
+const hourOfDay = targetTime.getUTCHours();
+const interval = Math.floor(targetTime.getUTCMinutes() / 5);
+
+const updates = await httpClient.get(`/api/scores/updates/${epochDay}/${hourOfDay}/${interval}`);
+console.log(`Updates found:`, updates.data);
+```
+
+## Single-Stat Validation
+
+Validate a single statistic against on-chain Merkle roots:
+
+```typescript theme={null}
+// Fetch validation data from API
+const response = await httpClient.get("/api/scores/stat-validation", {
+  params: {
+    fixtureId: 17952170,
+    seq: 941,
+    statKey: 1002
+  }
+});
+const validation = response.data;
+
+// Prepare fixture summary
+const fixtureSummary = {
+  fixtureId: new BN(validation.summary.fixtureId),
+  updateStats: {
+    updateCount: validation.summary.updateStats.updateCount,
+    minTimestamp: new BN(validation.summary.updateStats.minTimestamp),
+    maxTimestamp: new BN(validation.summary.updateStats.maxTimestamp),
+  },
+  eventsSubTreeRoot: validation.summary.eventStatsSubTreeRoot,
+};
+
+// Prepare Merkle proofs
+const fixtureProof = validation.subTreeProof.map((node: any) => ({
+  hash: node.hash,
+  isRightSibling: node.isRightSibling,
+}));
+
+const mainTreeProof = validation.mainTreeProof.map((node: any) => ({
+  hash: node.hash,
+  isRightSibling: node.isRightSibling,
+}));
+
+// Prepare stat to validate
+const stat1 = {
+  statToProve: validation.statToProve,
+  eventStatRoot: validation.eventStatRoot,
+  statProof: validation.statProof.map((node: any) => ({
+    hash: node.hash,
+    isRightSibling: node.isRightSibling,
+  })),
+};
+
+// Define validation predicate
+const predicate = {
+  threshold: 0,
+  comparison: { greaterThan: {} },
+};
+
+// Find the daily scores PDA
+const targetTs = validation.summary.updateStats.minTimestamp;
+const epochDay = Math.floor(targetTs / (24 * 60 * 60 * 1000));
+
+const [dailyScoresPda] = PublicKey.findProgramAddressSync(
+  [
+    Buffer.from("daily_scores_roots"),
+    new BN(epochDay).toBuffer("le", 2),
+  ],
+  program.programId
+);
+
+// Execute validation using view (read-only simulation)
+const computeBudgetIx = ComputeBudgetProgram.setComputeUnitLimit({
+  units: 1_400_000
+});
+
+try {
+  const isValid = await program.methods
+    .validateStat(
+      new BN(targetTs),
+      fixtureSummary,
+      fixtureProof,
+      mainTreeProof,
+      predicate,
+      stat1,
+      null,  // No second stat
+      null   // No operator
+    )
+    .accounts({
+      dailyScoresMerkleRoots: dailyScoresPda
+    })
+    .preInstructions([computeBudgetIx])
+    .view();
+
+  if (isValid) {
+    console.log("On-chain stat validation passed");
+  } else {
+    console.log("On-chain stat validation rejected the predicate");
+  }
+} catch (err) {
+  console.error("Validation simulation failed:", err);
+}
+```
+
+## Two-Stat Validation
+
+Validate a comparison between two stats (e.g., score difference). This example builds on the single-stat validation above:
+
+```typescript theme={null}
+// Fetch validation data including a second stat
+const response2 = await httpClient.get("/api/scores/stat-validation", {
+  params: {
+    fixtureId: 17952170,
+    seq: 941,
+    statKey: 1002,
+    statKey2: 1003
+  }
+});
+const validation2 = response2.data;
+
+// Prepare second stat (stat1 is already defined above)
+const stat2 = {
+  statToProve: validation2.statToProve2,
+  eventStatRoot: validation2.eventStatRoot,
+  statProof: validation2.statProof2.map((node: any) => ({
+    hash: node.hash,
+    isRightSibling: node.isRightSibling,
+  })),
+};
+
+// Define operation and predicate
+const op = { subtract: {} };
+const predicate2 = {
+  threshold: 5,
+  comparison: { lessThan: {} },
+};
+
+// Execute two-stat validation (reuses variables from single-stat example)
+const isValid2 = await program.methods
+  .validateStat(
+    new BN(targetTs),
+    fixtureSummary,
+    fixtureProof,
+    mainTreeProof,
+    predicate2,
+    stat1,
+    stat2,
+    op
+  )
+  .accounts({
+    dailyScoresMerkleRoots: dailyScoresPda,
+  })
+  .preInstructions([computeBudgetIx])
+  .view();
+
+console.log("Two-stat validation result:", isValid2);
+```
+
+## Real-Time Scores Streaming
+
+Subscribe to real-time scores updates:
+
+```typescript theme={null}
+const streamUrl = "https://txline.txodds.com/api/scores/stream";
+const streamResponse = await fetch(streamUrl, {
+  headers: {
+    Authorization: `Bearer ${jwt}`,
+    "X-Api-Token": apiToken,
+    Accept: "text/event-stream",
+    "Cache-Control": "no-cache",
+  },
+});
+
+if (!streamResponse.ok) {
+  throw new Error(`Stream failed: ${streamResponse.status}`);
+}
+
+const reader = streamResponse.body!.getReader();
+const decoder = new TextDecoder();
+
+try {
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+
+    const chunk = decoder.decode(value);
+    const lines = chunk.split("\n");
+
+    for (const line of lines) {
+      if (line.trim()) {
+        console.log('Received scores update:', line);
+      }
+    }
+  }
+} finally {
+  reader.releaseLock();
+}
+```
+
+## Validation Use Cases
+
+On-chain validation enables trustless verification of:
+
+* **Trading Settlement** - Prove score outcomes for bet settlement
+* **Conditional Logic** - Execute smart contract logic based on verified game stats
+* **Dispute Resolution** - Provide cryptographic proof of game data
+* **Automated Markets** - Settle prediction markets with on-chain verification
+* **Score Differentials** - Validate margins and score differences for complex betting scenarios

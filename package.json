@@ -1,0 +1,17 @@
+{
+  "name": "txodds-validatestat-spike",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Devnet spike: prove validate_stat off-chain .view() + on-chain CPI feasibility for trustless settlement",
+  "scripts": {
+    "auth": "node 01_auth_subscribe.mjs",
+    "validate": "node 02_validate_stat.mjs"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.30.1",
+    "@solana/spl-token": "^0.4.9",
+    "@solana/web3.js": "^1.95.4",
+    "tweetnacl": "^1.0.3"
+  }
+}

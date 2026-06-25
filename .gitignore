@@ -1,0 +1,15 @@
+# secrets — never commit
+devnet-keypair.json
+auth.json
+**/program-keypair.json
+**/*-keypair.json
+.env
+.env.*
+
+# build / runtime artifacts
+node_modules/
+**/target/
+.anchor/
+test-ledger/
+validator.log
+*.output
