@@ -7,9 +7,10 @@ import { Connection, Keypair, PublicKey, ComputeBudgetProgram } from "@solana/we
 import { TxLine } from "./txline.js";
 const { BN, Wallet, AnchorProvider, Program } = anchor;
 
-export function marketPda(programId, fixtureId) {
+export function marketPda(programId, fixtureId, nonce = 0) {
   const fid = Buffer.from(new BN(fixtureId).toArray("le", 8));
-  return PublicKey.findProgramAddressSync([Buffer.from("market"), fid], programId)[0];
+  const non = Buffer.from(new BN(nonce).toArray("le", 4));
+  return PublicKey.findProgramAddressSync([Buffer.from("market"), fid, non], programId)[0];
 }
 
 // Settle one market from a TxLINE stat-validation bundle. Returns { winner, sig, homeGoals, awayGoals }.

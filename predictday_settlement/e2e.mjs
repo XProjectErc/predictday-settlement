@@ -24,10 +24,13 @@ anchor.setProvider(provider);
 const program = new Program(idl, provider);
 const txline = new TxLine({ authPath: `${DIR}/auth.json` });
 
-const mPda = marketPda(program.programId, fixtureId);
+// fresh nonce per run => a brand-new market each demo take (override with NONCE=…)
+const nonce = Number(process.env.NONCE ?? Math.floor(Math.random() * 4_000_000_000));
+const mPda = marketPda(program.programId, fixtureId, nonce);
 const fid = Buffer.from(new BN(fixtureId).toArray("le", 8));
-const vPda = PublicKey.findProgramAddressSync([Buffer.from("vault"), fid], program.programId)[0];
-const pPda = PublicKey.findProgramAddressSync([Buffer.from("pos"), fid, payer.publicKey.toBuffer()], program.programId)[0];
+const non = Buffer.from(new BN(nonce).toArray("le", 4));
+const vPda = PublicKey.findProgramAddressSync([Buffer.from("vault"), fid, non], program.programId)[0];
+const pPda = PublicKey.findProgramAddressSync([Buffer.from("pos"), fid, non, payer.publicKey.toBuffer()], program.programId)[0];
 
 (async () => {
   if (isLocal) await conn.confirmTransaction(await conn.requestAirdrop(payer.publicKey, 100 * LAMPORTS_PER_SOL));
@@ -44,7 +47,7 @@ const pPda = PublicKey.findProgramAddressSync([Buffer.from("pos"), fid, payer.pu
   // 1) init (skip if exists)
   let m = await program.account.market.fetchNullable(mPda);
   if (!m) {
-    const s = await program.methods.initializeMarket(new BN(fixtureId), homeKey, awayKey, new BN(0))
+    const s = await program.methods.initializeMarket(new BN(fixtureId), homeKey, awayKey, new BN(0), nonce)
       .accounts({ market: mPda, vault: vPda, payer: payer.publicKey, systemProgram: web3.SystemProgram.programId }).rpc();
     console.log("1) market initialized", ex(s));
     m = await program.account.market.fetch(mPda);

@@ -30,9 +30,11 @@ pub mod predictday_settlement {
         home_stat_key: u32,
         away_stat_key: u32,
         closes_at: i64,
+        nonce: u32,
     ) -> Result<()> {
         let m = &mut ctx.accounts.market;
         m.fixture_id = fixture_id;
+        m.nonce = nonce;
         m.home_stat_key = home_stat_key;
         m.away_stat_key = away_stat_key;
         m.num_options = 3;
@@ -180,6 +182,7 @@ pub enum MarketStatus {
 #[account]
 pub struct Market {
     pub fixture_id: i64,        // 8
+    pub nonce: u32,             // 4 (lets one fixture seed multiple markets, e.g. demo runs)
     pub home_stat_key: u32,     // 4
     pub away_stat_key: u32,     // 4
     pub num_options: u8,        // 1
@@ -194,7 +197,7 @@ pub struct Market {
     pub vault_bump: u8,         // 1
 }
 impl Market {
-    pub const SPACE: usize = 8 + 8 + 4 + 4 + 1 + 1 + 1 + 8 + 24 + 8 + 8 + 8 + 1 + 1;
+    pub const SPACE: usize = 8 + 8 + 4 + 4 + 4 + 1 + 1 + 1 + 8 + 24 + 8 + 8 + 8 + 1 + 1;
 }
 
 #[account]
@@ -219,16 +222,16 @@ impl Position {
 
 // ---------- contexts ----------
 #[derive(Accounts)]
-#[instruction(fixture_id: i64)]
+#[instruction(fixture_id: i64, home_stat_key: u32, away_stat_key: u32, closes_at: i64, nonce: u32)]
 pub struct InitializeMarket<'info> {
     #[account(
         init, payer = payer, space = Market::SPACE,
-        seeds = [MARKET_SEED, &fixture_id.to_le_bytes()], bump
+        seeds = [MARKET_SEED, &fixture_id.to_le_bytes(), &nonce.to_le_bytes()], bump
     )]
     pub market: Account<'info, Market>,
     #[account(
         init, payer = payer, space = MarketVault::SPACE,
-        seeds = [VAULT_SEED, &fixture_id.to_le_bytes()], bump
+        seeds = [VAULT_SEED, &fixture_id.to_le_bytes(), &nonce.to_le_bytes()], bump
     )]
     pub vault: Account<'info, MarketVault>,
     #[account(mut)]
@@ -238,13 +241,13 @@ pub struct InitializeMarket<'info> {
 
 #[derive(Accounts)]
 pub struct PlaceBet<'info> {
-    #[account(mut, seeds = [MARKET_SEED, &market.fixture_id.to_le_bytes()], bump = market.bump)]
+    #[account(mut, seeds = [MARKET_SEED, &market.fixture_id.to_le_bytes(), &market.nonce.to_le_bytes()], bump = market.bump)]
     pub market: Account<'info, Market>,
-    #[account(mut, seeds = [VAULT_SEED, &market.fixture_id.to_le_bytes()], bump = market.vault_bump)]
+    #[account(mut, seeds = [VAULT_SEED, &market.fixture_id.to_le_bytes(), &market.nonce.to_le_bytes()], bump = market.vault_bump)]
     pub vault: Account<'info, MarketVault>,
     #[account(
         init_if_needed, payer = user, space = Position::SPACE,
-        seeds = [POS_SEED, &market.fixture_id.to_le_bytes(), user.key().as_ref()], bump
+        seeds = [POS_SEED, &market.fixture_id.to_le_bytes(), &market.nonce.to_le_bytes(), user.key().as_ref()], bump
     )]
     pub position: Account<'info, Position>,
     #[account(mut)]
@@ -254,7 +257,7 @@ pub struct PlaceBet<'info> {
 
 #[derive(Accounts)]
 pub struct SettleWithProof<'info> {
-    #[account(mut, seeds = [MARKET_SEED, &market.fixture_id.to_le_bytes()], bump = market.bump)]
+    #[account(mut, seeds = [MARKET_SEED, &market.fixture_id.to_le_bytes(), &market.nonce.to_le_bytes()], bump = market.bump)]
     pub market: Account<'info, Market>,
     /// CHECK: must be the TxLINE txoracle program
     #[account(address = TXORACLE_ID)]
@@ -266,12 +269,12 @@ pub struct SettleWithProof<'info> {
 
 #[derive(Accounts)]
 pub struct Claim<'info> {
-    #[account(seeds = [MARKET_SEED, &market.fixture_id.to_le_bytes()], bump = market.bump)]
+    #[account(seeds = [MARKET_SEED, &market.fixture_id.to_le_bytes(), &market.nonce.to_le_bytes()], bump = market.bump)]
     pub market: Account<'info, Market>,
-    #[account(mut, seeds = [VAULT_SEED, &market.fixture_id.to_le_bytes()], bump = market.vault_bump)]
+    #[account(mut, seeds = [VAULT_SEED, &market.fixture_id.to_le_bytes(), &market.nonce.to_le_bytes()], bump = market.vault_bump)]
     pub vault: Account<'info, MarketVault>,
     #[account(
-        mut, seeds = [POS_SEED, &market.fixture_id.to_le_bytes(), user.key().as_ref()], bump = position.bump,
+        mut, seeds = [POS_SEED, &market.fixture_id.to_le_bytes(), &market.nonce.to_le_bytes(), user.key().as_ref()], bump = position.bump,
         has_one = user @ SettleError::Unauthorized
     )]
     pub position: Account<'info, Position>,
