@@ -40,9 +40,18 @@ Verifiable Resolution Receipt (app/verifiable-resolution.html)
 - **CPI proof (native)** `settle_spike` `22DsfHPcPi1VMWSwahNSbokzQmZF82BWxCFgcRuYXe3J`:
   real devnet txs releasing on TRUE / reverting on FALSE.
 - **Settlement program (Anchor)** `predictday_settlement`
-  `FcJMEhND5sZNQh3KY7FHa7T9qicxa75f1463yJgGX8Qq`: full escrow + `settle_with_proof` + `claim`,
-  end-to-end test passing against the real cloned txoracle verifier and real on-chain roots,
-  including a fraud test (wrong winner ⇒ `ProofRejected`).
+  [`FcJMEhND5sZNQh3KY7FHa7T9qicxa75f1463yJgGX8Qq`](https://explorer.solana.com/address/FcJMEhND5sZNQh3KY7FHa7T9qicxa75f1463yJgGX8Qq?cluster=devnet)
+  — **LIVE ON DEVNET**: full escrow + `settle_with_proof` + `claim`, including a fraud test
+  (wrong winner ⇒ `ProofRejected`).
+
+### Live devnet transactions (fixture 17952170, 1-0 home win)
+| Step | Tx |
+|---|---|
+| `settle_with_proof` (CPI into validate_stat) | [`1tZFmW9L…`](https://explorer.solana.com/tx/1tZFmW9Lc3nzRq7ygDfwiwmY6JgCCAMmvPpdYB8YZv7nwdJifyaL5hSPqsmxZy8GhxtxC3hcXkuqNr8kC1JApCw?cluster=devnet) |
+| fraud attempt (wrong winner) | reverts on-chain with `ProofRejected` |
+| `claim` (winner paid pro-rata) | [`49AfKbUg…`](https://explorer.solana.com/tx/49AfKbUgYWfkYQQe1AafYV4y3k79JEhYNGTSUkEXVAWY79A3GDMvLD6SqNkaq5DXr9WFUTu7ezxzX6gPwehTEQuZ?cluster=devnet) |
+
+Reproduce: `RPC=https://api.devnet.solana.com node predictday_settlement/e2e.mjs`
 
 ## TxLINE endpoints used
 
