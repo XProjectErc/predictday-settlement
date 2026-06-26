@@ -28,7 +28,7 @@ Pick one (Loom is easiest — gives a shareable link instantly):
 
 **(0:50) Run the full flow ~2m30** — run this and narrate each printed line:
 ```
-RPC=https://api.devnet.solana.com node predictday_settlement/e2e.mjs
+bash demo.sh
 ```
 - "It pulls the live score + the 3-stage Merkle proof from TxLINE, creates a market, places bets."
 - "**Watch this**: a keeper submits the WRONG winner — it REVERTS with ProofRejected. The program

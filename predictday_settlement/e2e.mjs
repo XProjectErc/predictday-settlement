@@ -38,7 +38,8 @@ const pPda = PublicKey.findProgramAddressSync([Buffer.from("pos"), fid, non, pay
 (async () => {
   if (isLocal) await conn.confirmTransaction(await conn.requestAirdrop(payer.publicKey, 100 * LAMPORTS_PER_SOL));
   const BET = Number(process.env.BET_SOL || (isLocal ? 1 : 0.05));
-  console.log("RPC:", RPC, "| program:", program.programId.toBase58());
+  // mask any RPC key (query string) so it's safe to show on a recorded demo
+  console.log("RPC:", RPC.replace(/\?.*$/, "").replace(/\/$/, ""), "| program:", program.programId.toBase58());
   console.log("payer:", payer.publicKey.toBase58(), "bal:", (await conn.getBalance(payer.publicKey)) / LAMPORTS_PER_SOL, "| bet:", BET);
 
   const v = await txline.statValidation(fixtureId, seq, homeKey, awayKey);

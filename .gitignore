@@ -13,3 +13,5 @@ node_modules/
 test-ledger/
 validator.log
 *.output
+
+.demo-env
