@@ -54,11 +54,11 @@ Verifiable Resolution Receipt (app/verifiable-resolution.html)
 Reproduce: `RPC=https://api.devnet.solana.com node predictday_settlement/e2e.mjs`
 
 ### Security hardening
-This program was code-reviewed and hardened: betting closes at kickoff, settlement is time-gated,
-goal stat keys are hardcoded (anti-griefing), the day-root account is bound on-chain, and there are
-void/refund + fee-sweep paths so funds are never stranded. Full per-finding response in
-[`REVIEW-RESPONSE.md`](REVIEW-RESPONSE.md). One residual is documented there (and below): true
-*finality* binding needs a provable match-status stat from TxLINE.
+This program was code-reviewed and hardened: betting closes at kickoff; settlement is time-gated AND
+bound to the **proven post-full-time score** (`max_timestamp >= min_final_ts`, so a non-final/transient
+seq can't settle); goal stat keys are hardcoded (anti-griefing); the day-root account is bound on-chain;
+and there are void/refund + fee-sweep paths so funds are never stranded. Full per-finding response in
+[`REVIEW-RESPONSE.md`](REVIEW-RESPONSE.md).
 
 ## TxLINE endpoints used
 
@@ -130,8 +130,8 @@ Friction we hit (and worked around):
   headline use case for this track).
 - Devnet `request_devnet_faucet` gives USDT but you still need SOL for fees; a note on funding
   would smooth onboarding.
-- For *fully* trustless settlement, the provable stat set needs a match-status / "is_final" marker.
-  Today only score counts are Merkle-proven (`GameState`/`StatusId` live in the feed, not the proof),
-  so a settlement program can verify the score at a given seq but not that the match is over — an
-  untrusted keeper could prove an earlier (non-final) seq. A provable finished-flag would close this.
+- A provable match-status / "is_final" marker would help. Today only score counts are Merkle-proven
+  (`GameState`/`StatusId` live in the feed, not the proof). We bind finality via the proven
+  `max_timestamp` (a settlement must prove post-full-time data), which works but assumes the match is
+  over by a configured threshold; a provable finished-flag would remove that assumption entirely.
 ```

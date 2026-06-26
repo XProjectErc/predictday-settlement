@@ -36,10 +36,12 @@ pub mod predictday_settlement {
         fixture_id: i64,
         closes_at: i64,
         settle_after: i64,
+        min_final_ts: i64,
         nonce: u32,
     ) -> Result<()> {
         require!(closes_at > 0, SettleError::BadSchedule);
         require!(settle_after >= closes_at, SettleError::BadSchedule);
+        require!(min_final_ts > 0, SettleError::BadSchedule);
         let m = &mut ctx.accounts.market;
         m.fixture_id = fixture_id;
         m.nonce = nonce;
@@ -51,6 +53,7 @@ pub mod predictday_settlement {
         m.option_pools = [0u64; 3];
         m.closes_at = closes_at;
         m.settle_after = settle_after;
+        m.min_final_ts = min_final_ts;
         m.settled_at = 0;
         m.fees_collected = 0;
         m.fees_swept = false;
@@ -105,14 +108,18 @@ pub mod predictday_settlement {
         stat_a: StatTerm,
         stat_b: StatTerm,
     ) -> Result<()> {
-        let (fixture_id, total_pool, num_options, settle_after) = {
+        let (fixture_id, total_pool, num_options, settle_after, min_final_ts) = {
             let m = &ctx.accounts.market;
-            (m.fixture_id, m.total_pool, m.num_options, m.settle_after)
+            (m.fixture_id, m.total_pool, m.num_options, m.settle_after, m.min_final_ts)
         };
         require!(ctx.accounts.market.status == MarketStatus::Open, SettleError::MarketNotOpen);
-        // review #2 (mitigation): only settle once the match should be over. Full finality
-        // (reject a non-final seq) needs a provable match-status stat from txoracle — see README.
+        // review #2: wall-clock gate — can't settle before the match should be over.
         require!(Clock::get()?.unix_timestamp >= settle_after, SettleError::TooEarlyToSettle);
+        // review #2 (finality binding): the proven data must be captured at/after full time. Since a
+        // score is final once the match ends and max_timestamp is Merkle-proven, requiring it >=
+        // min_final_ts forces the keeper to prove the FINAL score — they can't settle on an earlier
+        // (transient) seq. Abnormal over-runs/postponements are handled by the authority void path.
+        require!(fixture_summary.update_stats.max_timestamp >= min_final_ts, SettleError::ScoreNotFinal);
         require!((winning_option as usize) < num_options as usize, SettleError::BadOption);
         require!(fixture_summary.fixture_id == fixture_id, SettleError::FixtureMismatch);
         require!(stat_a.stat_to_prove.key == HOME_GOALS_KEY, SettleError::StatKeyMismatch);
@@ -252,7 +259,8 @@ pub struct Market {
     pub total_pool: u64,        // 8
     pub option_pools: [u64; 3], // 24
     pub closes_at: i64,         // 8 (betting deadline / kickoff)
-    pub settle_after: i64,      // 8 (earliest settlement ~ full time)
+    pub settle_after: i64,      // 8 (earliest settlement, wall-clock ~ full time)
+    pub min_final_ts: i64,      // 8 (ms) proven max_timestamp must be >= this => post-match = final score
     pub settled_at: i64,        // 8
     pub fees_collected: u64,    // 8
     pub fees_swept: bool,       // 1
@@ -260,7 +268,7 @@ pub struct Market {
     pub vault_bump: u8,         // 1
 }
 impl Market {
-    pub const SPACE: usize = 8 + 8 + 4 + 32 + 1 + 1 + 1 + 8 + 24 + 8 + 8 + 8 + 8 + 1 + 1 + 1;
+    pub const SPACE: usize = 8 + 8 + 4 + 32 + 1 + 1 + 1 + 8 + 24 + 8 + 8 + 8 + 8 + 8 + 1 + 1 + 1;
 }
 
 #[account]
@@ -285,7 +293,7 @@ impl Position {
 
 // ---------- contexts ----------
 #[derive(Accounts)]
-#[instruction(fixture_id: i64, closes_at: i64, settle_after: i64, nonce: u32)]
+#[instruction(fixture_id: i64, closes_at: i64, settle_after: i64, min_final_ts: i64, nonce: u32)]
 pub struct InitializeMarket<'info> {
     #[account(
         init, payer = payer, space = Market::SPACE,
@@ -390,6 +398,7 @@ pub enum SettleError {
     #[msg("amount must be > 0")] ZeroAmount,
     #[msg("betting is closed (kickoff passed)")] BettingClosed,
     #[msg("too early to settle (before settle_after)")] TooEarlyToSettle,
+    #[msg("proven score is not final (max_timestamp < min_final_ts)")] ScoreNotFinal,
     #[msg("bad schedule (closes_at/settle_after)")] BadSchedule,
     #[msg("fixture id mismatch")] FixtureMismatch,
     #[msg("stat key mismatch")] StatKeyMismatch,

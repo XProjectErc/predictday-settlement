@@ -51,8 +51,12 @@ const pPda = PublicKey.findProgramAddressSync([Buffer.from("pos"), fid, non, pay
   const WINDOW = Number(process.env.WINDOW_SEC || 12);
   const closesAt = Math.floor(Date.now() / 1000) + WINDOW;
   const settleAfter = closesAt;
+  // finality threshold (ms): real markets set this to kickoff+~match-duration. For this historical
+  // fixture, set just below the final proof's max_timestamp so only post-full-time data settles.
+  const finalMaxTs = Number(v.summary.updateStats.maxTimestamp);
+  const minFinalTs = finalMaxTs - 1000;
 
-  const s0 = await program.methods.initializeMarket(new BN(fixtureId), new BN(closesAt), new BN(settleAfter), nonce)
+  const s0 = await program.methods.initializeMarket(new BN(fixtureId), new BN(closesAt), new BN(settleAfter), new BN(minFinalTs), nonce)
     .accounts({ market: mPda, vault: vPda, payer: payer.publicKey, systemProgram: web3.SystemProgram.programId }).rpc();
   console.log("1) market initialized", ex(s0));
 
@@ -83,5 +87,24 @@ const pPda = PublicKey.findProgramAddressSync([Buffer.from("pos"), fid, non, pay
   const s = await program.methods.claim().accounts({ market: mPda, vault: vPda, position: pPda, user: payer.publicKey }).rpc();
   const after = await conn.getBalance(payer.publicKey);
   console.log("5) claimed:", ((after - before) / LAMPORTS_PER_SOL).toFixed(4), "SOL", ex(s));
+
+  // 6) FINALITY GUARD (#2): a market whose finality threshold is in the future must reject the proof
+  // (can't settle on a non-final/transient score). No bets, no wait — fails before the CPI.
+  const n2 = nonce + 1;
+  const f2 = Buffer.from(new BN(n2).toArray("le", 4));
+  const m2 = marketPda(program.programId, fixtureId, n2);
+  const v2 = PublicKey.findProgramAddressSync([Buffer.from("vault"), fid, f2], program.programId)[0];
+  const dailyPda2 = txline.dailyScoresPda(v.summary.updateStats.minTimestamp);
+  await program.methods.initializeMarket(new BN(fixtureId), new BN(1), new BN(1), new BN(finalMaxTs + 10_000_000_000), n2)
+    .accounts({ market: m2, vault: v2, payer: payer.publicKey, systemProgram: web3.SystemProgram.programId }).rpc();
+  try {
+    await program.methods.settleWithProof(winner, a.ts, a.fixtureSummary, a.fixtureProof, a.mainTreeProof, a.statA, a.statB)
+      .accounts({ market: m2, txoracleProgram: txline.programId, dailyScoresMerkleRoots: dailyPda2 })
+      .preInstructions([ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 })]).rpc();
+    console.log("6) FINALITY GUARD FAILED -> BUG! (stale-score settle should revert)");
+  } catch (e) {
+    const msg = (e.logs || []).join("\n");
+    console.log("6) finality guard: stale/non-final settle REVERTED:", /ScoreNotFinal/i.test(msg) ? "ScoreNotFinal (must prove post-full-time data)" : (e.error?.errorMessage || "reverted"));
+  }
   console.log("\nE2E (adapter + keeper + program, hardened): PASS");
 })().catch(e => { console.error("E2E FAIL:", e.message); if (e.logs) console.error(e.logs.join("\n")); process.exit(1); });
