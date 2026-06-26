@@ -44,14 +44,21 @@ Verifiable Resolution Receipt (app/verifiable-resolution.html)
   — **LIVE ON DEVNET**: full escrow + `settle_with_proof` + `claim`, including a fraud test
   (wrong winner ⇒ `ProofRejected`).
 
-### Live devnet transactions (fixture 17952170, 1-0 home win)
+### Live devnet transactions (hardened build, fixture 17952170, 1-0 home win)
 | Step | Tx |
 |---|---|
-| `settle_with_proof` (CPI into validate_stat) | [`1tZFmW9L…`](https://explorer.solana.com/tx/1tZFmW9Lc3nzRq7ygDfwiwmY6JgCCAMmvPpdYB8YZv7nwdJifyaL5hSPqsmxZy8GhxtxC3hcXkuqNr8kC1JApCw?cluster=devnet) |
+| `settle_with_proof` (CPI into validate_stat) | [`4RSFHeTL…`](https://explorer.solana.com/tx/4RSFHeTLFW54Qc1281UyLyJehjX7dQzJJRzfjiyyXxTraEPqxaFp2H7ue1nCkHNrBJyBroXc69vo3vdpohMM5GW2?cluster=devnet) |
 | fraud attempt (wrong winner) | reverts on-chain with `ProofRejected` |
-| `claim` (winner paid pro-rata) | [`49AfKbUg…`](https://explorer.solana.com/tx/49AfKbUgYWfkYQQe1AafYV4y3k79JEhYNGTSUkEXVAWY79A3GDMvLD6SqNkaq5DXr9WFUTu7ezxzX6gPwehTEQuZ?cluster=devnet) |
+| `claim` (winner paid pro-rata) | [`3cBvQyWD…`](https://explorer.solana.com/tx/3cBvQyWDtHYwgfUgrc3SvxRs3ZUJyEKco39oWN27eAANeJGsgNT8119hBttz32gkK6UCBx12YojqXN2pNqUDmQN5?cluster=devnet) |
 
 Reproduce: `RPC=https://api.devnet.solana.com node predictday_settlement/e2e.mjs`
+
+### Security hardening
+This program was code-reviewed and hardened: betting closes at kickoff, settlement is time-gated,
+goal stat keys are hardcoded (anti-griefing), the day-root account is bound on-chain, and there are
+void/refund + fee-sweep paths so funds are never stranded. Full per-finding response in
+[`REVIEW-RESPONSE.md`](REVIEW-RESPONSE.md). One residual is documented there (and below): true
+*finality* binding needs a provable match-status stat from TxLINE.
 
 ## TxLINE endpoints used
 
@@ -123,4 +130,8 @@ Friction we hit (and worked around):
   headline use case for this track).
 - Devnet `request_devnet_faucet` gives USDT but you still need SOL for fees; a note on funding
   would smooth onboarding.
+- For *fully* trustless settlement, the provable stat set needs a match-status / "is_final" marker.
+  Today only score counts are Merkle-proven (`GameState`/`StatusId` live in the feed, not the proof),
+  so a settlement program can verify the score at a given seq but not that the match is over — an
+  untrusted keeper could prove an earlier (non-final) seq. A provable finished-flag would close this.
 ```

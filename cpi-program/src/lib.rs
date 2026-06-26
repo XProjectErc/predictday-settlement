@@ -24,6 +24,15 @@ pub fn process_instruction(
     let txoracle = next_account_info(account_iter)?; // executable program to CPI
     let daily = next_account_info(account_iter)?; // daily_scores_merkle_roots (readonly)
 
+    // SPIKE-ONLY (do NOT copy to prod without escrow): pin the CPI target so a malicious program
+    // can't return 0x01 and "release". The real Anchor program pins this via `address = TXORACLE_ID`.
+    // devnet txoracle: 6pW64gN1s2uqjHkn1unFeEjAwJkPGHoppGvS715wyP2J
+    const TXORACLE_ID: Pubkey = solana_program::pubkey!("6pW64gN1s2uqjHkn1unFeEjAwJkPGHoppGvS715wyP2J");
+    if *txoracle.key != TXORACLE_ID {
+        msg!("settle_spike: refusing CPI to non-txoracle program {}", txoracle.key);
+        return Err(ProgramError::IncorrectProgramId);
+    }
+
     msg!("settle_spike: CPI -> validate_stat on {}", txoracle.key);
     let ix = Instruction {
         program_id: *txoracle.key,

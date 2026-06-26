@@ -2,12 +2,14 @@
 // The page lets ANYONE re-verify the score on-chain client-side (simulateTransaction of validate_stat
 // against the public devnet RPC) — no backend, no trust. We inline the prebuilt tx + receipt data.
 import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import anchor from "@coral-xyz/anchor";
 import { Connection, PublicKey, Transaction, ComputeBudgetProgram } from "@solana/web3.js";
 import { TxLine } from "./txline.js";
 const { BN, Wallet, AnchorProvider, Program } = anchor;
 
-const DIR = "/home/cross/txodds-spike";
+const DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."); // repo root
 const DEVNET_RPC = "https://api.devnet.solana.com";
 const idl = JSON.parse(fs.readFileSync(`${DIR}/txline_idl.json`, "utf8")); // txoracle IDL (for building validate_stat)
 const fixtureId = Number(process.argv[2] || 17952170);

@@ -2,6 +2,8 @@
 // Pulls the 3-stage Merkle proof via the TxLine adapter, derives the winner, and calls settle_with_proof.
 // Trust is on-chain: the program rebuilds the predicate and verifies the proof, so the keeper is untrusted.
 import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import anchor from "@coral-xyz/anchor";
 import { Connection, Keypair, PublicKey, ComputeBudgetProgram } from "@solana/web3.js";
 import { TxLine } from "./txline.js";
@@ -31,7 +33,7 @@ export async function settleWithProof({ program, txline, fixtureId, market, seq,
 // CLI: node src/keeper.mjs --rpc <url> --fixture 17952170 --seq 941 [--home 1002 --away 1003]
 if (import.meta.url === `file://${process.argv[1]}`) {
   const arg = (k, d) => { const i = process.argv.indexOf(`--${k}`); return i >= 0 ? process.argv[i + 1] : d; };
-  const DIR = "/home/cross/txodds-spike";
+  const DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."); // repo root
   const rpc = arg("rpc", "http://127.0.0.1:8899");
   const fixtureId = Number(arg("fixture", 17952170));
   const seq = Number(arg("seq", 941));
