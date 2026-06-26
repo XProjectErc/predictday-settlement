@@ -225,8 +225,10 @@ pub mod predictday_settlement {
         Ok(())
     }
 
-    /// review #4 + #7: authority sweeps the accrued rake (one-time) after settlement. Safe because
-    /// winners are owed net_pool and the vault holds total_pool — fees_collected is exactly the slack.
+    /// review #4: authority sweeps the accrued rake (exactly fees_collected, one-time) after settlement.
+    /// Safe because winners are owed net_pool and the vault holds total_pool — fees_collected is the slack.
+    /// NOTE (re #7): this does NOT recover pro-rata rounding dust or the vault rent — there is no
+    /// vault-close ix, so those stay locked. Sub-lamport per winner; negligible, but not "recovered".
     pub fn sweep_fees(ctx: Context<SweepFees>) -> Result<()> {
         let m = &mut ctx.accounts.market;
         require!(m.status == MarketStatus::Settled, SettleError::NotSettled);

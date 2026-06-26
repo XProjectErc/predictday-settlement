@@ -11,7 +11,7 @@ import {
 import nacl from "tweetnacl";
 
 const { BN, Wallet, AnchorProvider, Program } = anchor;
-const DIR = "/home/cross/txodds-spike";
+const DIR = new URL(".", import.meta.url).pathname.replace(/\/$/, ""); // this script's dir (repo root)
 const RPC = process.env.RPC_URL || "https://api.devnet.solana.com";
 const API = "https://txline-dev.txodds.com"; // devnet API host
 const idl = JSON.parse(fs.readFileSync(`${DIR}/txline_idl.json`, "utf8"));

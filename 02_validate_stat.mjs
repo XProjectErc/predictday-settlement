@@ -4,7 +4,7 @@ import anchor from "@coral-xyz/anchor";
 import { Connection, PublicKey, Transaction, ComputeBudgetProgram } from "@solana/web3.js";
 const { BN, Wallet, AnchorProvider, Program, web3 } = anchor;
 
-const DIR = "/home/cross/txodds-spike";
+const DIR = new URL(".", import.meta.url).pathname.replace(/\/$/, ""); // this script's dir (repo root)
 const RPC = process.env.RPC_URL || "https://api.devnet.solana.com";
 const API = "https://txline-dev.txodds.com";
 const idl = JSON.parse(fs.readFileSync(`${DIR}/txline_idl.json`, "utf8"));

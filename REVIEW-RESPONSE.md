@@ -11,8 +11,8 @@ Thanks — sharp review. Actioned below. Program redeployed + hardened on devnet
 | 4 | MED | ✅ Fixed | Added `void_market` (authority), `claim_refund` (full stake back on void), and `sweep_fees` (one-time rake withdrawal). `settle_with_proof` auto-voids when `winning_pool == 0` so the pool is refundable instead of stuck. Market now stores an `authority`. |
 | 5 | MED | ✅ Fixed | `settle_with_proof` derives the expected `daily_scores_roots` PDA on-chain from the proven `ts` and `require_keys_eq!`s the passed account (`WrongDayRoot`) — no longer trusting txoracle alone. |
 | 6 | LOW | ✅ Fixed | The native spike now pins the txoracle program id (`IncorrectProgramId`) + a loud "do not copy to prod" comment. |
-| 7 | LOW | ✅ Addressed | Pro-rata dust is recoverable via `sweep_fees` (it stays with the rake slack in the vault). |
-| 8 | LOW | ✅ Fixed | `keeper.mjs`, `e2e.mjs`, `gen_receipt.mjs` now resolve paths from `import.meta.url` — the README run steps work anywhere. |
+| 7 | LOW | ⚠️ Corrected | You're right — dust is NOT recovered. `sweep_fees` withdraws exactly `fees_collected`; the pro-rata rounding dust + vault rent stay locked (there's no vault-close ix). Sub-lamport per winner, so negligible — but the earlier "recoverable" claim was wrong; comment + this doc fixed. |
+| 8 | LOW | ✅ Fixed | All scripts — `keeper.mjs`, `e2e.mjs`, `gen_receipt.mjs` **and** the `01_/02_/03_` reference spikes — now resolve paths from `import.meta.url`. No hardcoded `/home/cross/...` paths remain (grep-verified). |
 | 9 | INFO | ✅ Noted | Stale `TXLINE_MINT` IDL constant already worked around; raised upstream in the API feedback. |
 
 ## On #2 — how we closed it without a finished-marker
