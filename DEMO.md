@@ -43,7 +43,7 @@ bash demo.sh
 
 **(4:20) Close ~20s**
 > "TxLINE as the primary source, settlement no operator can fake, and a receipt anyone can check.
-> This is live as wcinu.bet today; this repo makes its settlement trustless. Thanks."
+> This runs on devnet today. We're the team behind wcinu.bet, a live World Cup market on Solana — and this is the trustless settlement layer we built on TxLINE. Thanks."
 
 ## If a take goes wrong
 Just run the command again — it makes a brand-new market every time (random nonce), so nothing to reset.
